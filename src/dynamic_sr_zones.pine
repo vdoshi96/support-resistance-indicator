@@ -503,10 +503,17 @@ if barstate.islast
             if not array.get(skipLbl, i)
                 float lblY = array.get(allLblPrice, i) + array.get(allLblYAdj, i)
                 float yAdj = array.get(allLblYAdj, i)
-                int lblSt = label.style_label_left
+                int bi = array.get(allLblBar, i)
+                string lt = array.get(allLblText, i)
+                color lc = array.get(allLblColor, i)
+                color tc = array.get(allLblTxtCol, i)
                 if array.get(allLblStruct, i) and math.abs(yAdj) > pxTick * 2
-                    lblSt := yAdj > 0 ? label.style_label_up : label.style_label_down
-                label.new(array.get(allLblBar, i), lblY, array.get(allLblText, i), style=lblSt, color=array.get(allLblColor, i), textcolor=array.get(allLblTxtCol, i), size=labelSz)
+                    if yAdj > 0
+                        label.new(bi, lblY, lt, style=label.style_label_up, color=lc, textcolor=tc, size=labelSz)
+                    else
+                        label.new(bi, lblY, lt, style=label.style_label_down, color=lc, textcolor=tc, size=labelSz)
+                else
+                    label.new(bi, lblY, lt, style=label.style_label_left, color=lc, textcolor=tc, size=labelSz)
 
     var table legTbl = table.new(position.top_right, 1, 8, bgcolor=color.new(color.gray, legendBgAlpha), border_width=0)
     if showLegend
