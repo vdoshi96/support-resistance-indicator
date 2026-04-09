@@ -22,6 +22,12 @@
 | Show Legend | true | - | Toggle the top-right legend table. |
 | Label Size | Normal | Small/Normal/Large | Size of all labels on chart. |
 | Label Spacing (%) | 0.3 | 0.05+ | Labels closer than this % apart get staggered or merged. |
+| Legend Background Opacity | 68 | 0-95 | Lower = more opaque gray behind the legend (better on white charts). |
+| Legend High Contrast Text | true | - | When on, legend body text uses high-contrast color. |
+| Auto Stagger Close Structural Labels | true | - | Spreads PDH/PDL/PWH/PWL labels when they sit on nearby prices. |
+| Structural Label Spacing (%) | 1.25 | 0.05+ | Relative gap threshold for treating two structural labels as overlapping. |
+| Structural Near (x ATR) | 0.5 | 0.05+ | Also stagger when absolute price gap is within this multiple of ATR (helps PWH vs PDL on mid-priced names). |
+| Structural Label Vertical Offset (ATR) | 0.10 | 0.01+ | How far labels shift vertically when staggered (scaled by ATR). |
 
 ## Structural Levels
 
