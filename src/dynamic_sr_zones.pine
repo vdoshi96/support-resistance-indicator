@@ -416,32 +416,48 @@ if barstate.islast
     if priceOff > maxOff
         priceOff := maxOff
 
-    if enableStructAutoStagger and allN > 1
+    float yAmtBase = math.max(priceOff, pxTick * 24.0)
+    yAmtBase := math.max(yAmtBase, na(atrVal) or atrVal == 0 ? pxTick * 24.0 : atrVal * 0.15)
+
+    // Structural stagger uses structural labels only (sorted by price). Pivot labels between PDL and PWH
+    // no longer break the chain (they sat between those levels in the unified sorted list).
+    var int[] stIx = array.new_int()
+    array.clear(stIx)
+    if allN > 0
+        for i = 0 to allN - 1
+            if array.get(allLblStruct, i) and not array.get(skipLbl, i)
+                array.push(stIx, i)
+    int stN = array.size(stIx)
+    if enableStructAutoStagger and stN > 1
+        for i = 0 to stN - 2
+            for j = i + 1 to stN - 1
+                int ixa = array.get(stIx, i)
+                int ixb = array.get(stIx, j)
+                if array.get(allLblPrice, ixa) > array.get(allLblPrice, ixb)
+                    array.set(stIx, i, ixb)
+                    array.set(stIx, j, ixa)
         int s = 0
-        while s < allN
-            if array.get(skipLbl, s) or not array.get(allLblStruct, s)
-                s := s + 1
-            else
-                int e = s
-                while e < allN - 1
-                    if array.get(skipLbl, e + 1) or not array.get(allLblStruct, e + 1)
-                        break
-                    float pA = array.get(allLblPrice, e)
-                    float pB = array.get(allLblPrice, e + 1)
-                    if pA <= 0
-                        break
-                    if not structLblNearEnough(pA, pB, atrVal, structLblOverlapPct, structLblGapAtrMult)
-                        break
-                    e := e + 1
-                if e > s
-                    for k = s to e
-                        float sgn = (k - s) % 2 == 0 ? 1.0 : -1.0
-                        float yAmt = math.max(priceOff, pxTick * 12.0)
-                        array.set(allLblYAdj, k, sgn * yAmt)
-                        int step = (k - s) * 2
-                        int nb = bar_index + lineExtend + 1 + step
-                        array.set(allLblBar, k, math.min(nb, maxLblBar))
-                s := e + 1
+        while s < stN
+            int e = s
+            while e < stN - 1
+                int ixA = array.get(stIx, e)
+                int ixB = array.get(stIx, e + 1)
+                float pA = array.get(allLblPrice, ixA)
+                float pB = array.get(allLblPrice, ixB)
+                if pA <= 0
+                    break
+                if not structLblNearEnough(pA, pB, atrVal, structLblOverlapPct, structLblGapAtrMult)
+                    break
+                e := e + 1
+            if e > s
+                for k = s to e
+                    int ixK = array.get(stIx, k)
+                    float sgn = (k - s) % 2 == 0 ? 1.0 : -1.0
+                    array.set(allLblYAdj, ixK, sgn * yAmtBase)
+                    int step = (k - s) * 2
+                    int nb = bar_index + lineExtend + 1 + step
+                    array.set(allLblBar, ixK, math.min(nb, maxLblBar))
+            s := e + 1
 
     if allN > 1
         for i = 1 to allN - 1
