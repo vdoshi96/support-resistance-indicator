@@ -37,7 +37,7 @@ enableStructAutoStagger = input.bool(true, "Auto Stagger Close Structural Labels
 structLblOverlapPct = input.float(1.25, "Structural Label Spacing (%)", minval=0.05, step=0.05, group=grpDisplay, tooltip="Relative gap threshold; pairs like PWH vs PDL often need ~1%+ on sub-$100 names")
 structLblGapAtrMult = input.float(0.50, "Structural Near (x ATR)", minval=0.05, step=0.05, group=grpDisplay, tooltip="Also treat as close when absolute gap is within this multiple of ATR (covers cases where %% looks small but labels still overlap)")
 structLblOffsetAtrMult = input.float(0.10, "Structural Label Vertical Offset (ATR)", minval=0.01, step=0.01, group=grpDisplay)
-structLblStaggerBoost = input.float(2.25, "Structural Stagger Strength", minval=0.5, maxval=6.0, step=0.25, group=grpDisplay, tooltip="Multiplies separation for clustered PDH/PDL/PWH/PWL labels")
+structLblStaggerBoost = input.float(1.0, "Structural Stagger Strength", minval=0.5, maxval=4.0, step=0.25, group=grpDisplay, tooltip="Multiplies small vertical nudges when structural labels cluster (keep near 1.0 for stable charts)")
 
 grpStruct = "Structural Levels"
 showPDHL      = input.bool(true, "Previous Day High / Low", group=grpStruct)
@@ -404,7 +404,6 @@ if barstate.islast
                         pPrice = array.get(allLblPrice, j)
                         if math.abs(sPrice - pPrice) / pPrice * 100 <= lblOverlap
                             array.set(allLblText, j, array.get(allLblText, j) + " [" + tag + "]")
-                            array.set(skipLbl, i, true)
                             break
 
     int maxLblBar = bar_index + lineExtend + 7
@@ -417,8 +416,8 @@ if barstate.islast
     if priceOff > maxOff
         priceOff := maxOff
 
-    float yAmtBase = math.max(priceOff, pxTick * 40.0)
-    yAmtBase := math.max(yAmtBase, na(atrVal) or atrVal == 0 ? pxTick * 40.0 : atrVal * 0.22)
+    float yAmtBase = math.max(priceOff, pxTick * 14.0)
+    yAmtBase := math.max(yAmtBase, na(atrVal) or atrVal == 0 ? pxTick * 14.0 : atrVal * 0.12)
 
     // Structural stagger uses structural labels only (sorted by price). Pivot labels between PDL and PWH
     // no longer break the chain (they sat between those levels in the unified sorted list).
@@ -454,15 +453,18 @@ if barstate.islast
                 float pClLo = array.get(allLblPrice, array.get(stIx, s))
                 float pClHi = array.get(allLblPrice, array.get(stIx, e))
                 float span = pClHi - pClLo
-                float halfSep = math.max(yAmtBase, span * 0.72 + pxTick * 45.0)
-                halfSep := math.max(halfSep, na(atrVal) or atrVal == 0 ? pxTick * 55.0 : atrVal * 0.38)
+                float halfSep = math.max(yAmtBase, span * 0.22 + pxTick * 8.0)
+                halfSep := math.max(halfSep, na(atrVal) or atrVal == 0 ? pxTick * 12.0 : atrVal * 0.14)
                 halfSep := halfSep * structLblStaggerBoost
+                float capAtr = na(atrVal) or atrVal == 0 ? pxTick * 40.0 : atrVal * 0.42
+                float capPct = na(close) or close == 0 ? capAtr : close * 0.0035
+                halfSep := math.min(halfSep, math.min(capAtr, capPct))
                 for k = s to e
                     int ixK = array.get(stIx, k)
-                    // Cluster list is ascending price: push lower line label down (-), higher line up (+) so they separate on screen
+                    // Cluster list is ascending price: lower label nudged down (-), higher up (+)
                     float sgn = (k - s) % 2 == 0 ? -1.0 : 1.0
                     array.set(allLblYAdj, ixK, sgn * halfSep)
-                    int step = (k - s) * 5
+                    int step = (k - s) * 3
                     int nb = bar_index + lineExtend + 1 + step
                     array.set(allLblBar, ixK, math.min(nb, maxLblBar))
             s := e + 1
@@ -502,18 +504,7 @@ if barstate.islast
         for i = 0 to allN - 1
             if not array.get(skipLbl, i)
                 float lblY = array.get(allLblPrice, i) + array.get(allLblYAdj, i)
-                float yAdj = array.get(allLblYAdj, i)
-                int bi = array.get(allLblBar, i)
-                string lt = array.get(allLblText, i)
-                color lc = array.get(allLblColor, i)
-                color tc = array.get(allLblTxtCol, i)
-                if array.get(allLblStruct, i) and math.abs(yAdj) > pxTick * 2
-                    if yAdj > 0
-                        label.new(bi, lblY, lt, style=label.style_label_up, color=lc, textcolor=tc, size=labelSz)
-                    else
-                        label.new(bi, lblY, lt, style=label.style_label_down, color=lc, textcolor=tc, size=labelSz)
-                else
-                    label.new(bi, lblY, lt, style=label.style_label_left, color=lc, textcolor=tc, size=labelSz)
+                label.new(array.get(allLblBar, i), lblY, array.get(allLblText, i), style=label.style_label_left, color=array.get(allLblColor, i), textcolor=array.get(allLblTxtCol, i), size=labelSz)
 
     var table legTbl = table.new(position.top_right, 1, 8, bgcolor=color.new(color.gray, legendBgAlpha), border_width=0)
     if showLegend
