@@ -22,6 +22,7 @@
 | Show Legend | true | - | Toggle the top-right legend table. |
 | Label Size | Normal | Small/Normal/Large | Size of all labels on chart. |
 | Label Spacing (%) | 0.3 | 0.05+ | Labels closer than this % apart get staggered or merged. |
+| Zone Merge (%) | 0.85 | 0.10+ | Collapses nearby displayed levels into one representative line and shaded zone (useful on lower timeframes). |
 | Legend Background Opacity | 68 | 0-95 | Lower = more opaque gray behind the legend (better on white charts). |
 | Legend High Contrast Text | true | - | When on, legend body text uses high-contrast color. |
 | Auto Stagger Close Structural Labels | true | - | Spreads PDH/PDL/PWH/PWL labels when they sit on nearby prices. |

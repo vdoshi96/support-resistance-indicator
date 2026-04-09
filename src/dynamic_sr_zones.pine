@@ -31,6 +31,7 @@ showLabels    = input.bool(true, "Show Price Labels", group=grpDisplay)
 showLegend    = input.bool(true, "Show Legend", group=grpDisplay)
 lblSize       = input.string("Normal", "Label Size", options=["Small", "Normal", "Large"], group=grpDisplay)
 lblOverlap    = input.float(0.3, "Label Spacing (%)", minval=0.05, step=0.05, group=grpDisplay, tooltip="Labels closer than this % apart get staggered to avoid overlap")
+zoneMergePct  = input.float(0.85, "Zone Merge (%)", minval=0.10, step=0.05, group=grpDisplay, tooltip="Nearby displayed levels are collapsed into one representative line + shaded zone")
 legendBgAlpha = input.int(68, "Legend Background Opacity", minval=0, maxval=95, group=grpDisplay, tooltip="Lower = more opaque background (better contrast on light charts)")
 legendHighContrastText = input.bool(true, "Legend High Contrast Text", group=grpDisplay)
 enableStructAutoStagger = input.bool(true, "Auto Stagger Close Structural Labels", group=grpDisplay)
@@ -483,28 +484,73 @@ if barstate.islast
                         curBar = array.get(allLblBar, i)
                         array.set(allLblBar, i, math.min(curBar + 8, maxLblBar))
 
+    // ── Final render pass: collapse close displayed levels into representative zones ──
+    var int[] actIx = array.new_int()
+    array.clear(actIx)
     if allN > 0
         for i = 0 to allN - 1
             if not array.get(skipLbl, i)
-                p = array.get(allLblPrice, i), origin = array.get(allLblOrigin, i)
-                lCol = array.get(allLblColor, i), lw = array.get(allLblLw, i)
-                isSt = array.get(allLblStruct, i)
-                sty = isSt ? line.style_dashed : line.style_solid
-                line.new(origin, p, bar_index + lineExtend, p, color=lCol, width=lw, style=sty)
+                array.push(actIx, i)
 
-    if bCount > 0
-        for i = 0 to bCount - 1
-            bt = array.get(bTo, i), bb = array.get(bBo, i)
-            if bt != bb
-                anchor = array.get(bAn, i), origin = array.get(bOr, i)
-                lCol = anchor >= close ? resColor : supColor
-                box.new(origin, bt, bar_index + lineExtend, bb, bgcolor=color.new(lCol, bandAlpha), border_color=color.new(lCol, 90))
+    int actN = array.size(actIx)
+    if actN > 0
+        int s = 0
+        while s < actN
+            int e = s
+            while e < actN - 1
+                int ixA = array.get(actIx, e)
+                int ixB = array.get(actIx, e + 1)
+                pA = array.get(allLblPrice, ixA)
+                pB = array.get(allLblPrice, ixB)
+                if pA <= 0
+                    break
+                pctGap = math.abs(pB - pA) / pA * 100
+                if pctGap > zoneMergePct
+                    break
+                e := e + 1
 
-    if showLabels and allN > 0
-        for i = 0 to allN - 1
-            if not array.get(skipLbl, i)
-                float lblY = array.get(allLblPrice, i) + array.get(allLblYAdj, i)
-                label.new(array.get(allLblBar, i), lblY, array.get(allLblText, i), style=label.style_label_left, color=array.get(allLblColor, i), textcolor=array.get(allLblTxtCol, i), size=labelSz)
+            int repIx = array.get(actIx, s)
+            zTop = array.get(allLblPrice, repIx)
+            zBot = zTop
+            zOrigin = array.get(allLblOrigin, repIx)
+            zBar = array.get(allLblBar, repIx)
+            allStructInZone = array.get(allLblStruct, repIx)
+            bestLw = array.get(allLblLw, repIx)
+
+            if e > s
+                for k = s to e
+                    ixK = array.get(actIx, k)
+                    pk = array.get(allLblPrice, ixK)
+                    zTop := math.max(zTop, pk)
+                    zBot := math.min(zBot, pk)
+                    zOrigin := math.min(zOrigin, array.get(allLblOrigin, ixK))
+                    zBar := math.max(zBar, array.get(allLblBar, ixK))
+                    allStructInZone := allStructInZone and array.get(allLblStruct, ixK)
+                    lwK = array.get(allLblLw, ixK)
+                    // Prefer strongest line width; break ties in favor of non-structural label.
+                    if lwK > bestLw or (lwK == bestLw and not array.get(allLblStruct, ixK) and array.get(allLblStruct, repIx))
+                        repIx := ixK
+                        bestLw := lwK
+
+            repPrice = e > s ? (zTop + zBot) / 2.0 : array.get(allLblPrice, repIx)
+            repColor = array.get(allLblColor, repIx)
+            repTxtCol = array.get(allLblTxtCol, repIx)
+            repLw = array.get(allLblLw, repIx)
+            repSty = allStructInZone ? line.style_dashed : line.style_solid
+            repText = array.get(allLblText, repIx)
+            if e > s and not allStructInZone
+                repText := repText + " ▒"
+            if e > s and allStructInZone
+                repText := "STRUCT " + str.tostring(repPrice, format.mintick)
+
+            line.new(zOrigin, repPrice, bar_index + lineExtend, repPrice, color=repColor, width=repLw, style=repSty)
+            if e > s and zTop != zBot
+                box.new(zOrigin, zTop, bar_index + lineExtend, zBot, bgcolor=color.new(repColor, bandAlpha), border_color=color.new(repColor, 90))
+
+            if showLabels
+                label.new(zBar, repPrice, repText, style=label.style_label_left, color=repColor, textcolor=repTxtCol, size=labelSz)
+
+            s := e + 1
 
     var table legTbl = table.new(position.top_right, 1, 8, bgcolor=color.new(color.gray, legendBgAlpha), border_width=0)
     if showLegend
