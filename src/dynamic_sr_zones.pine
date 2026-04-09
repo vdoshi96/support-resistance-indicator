@@ -34,8 +34,9 @@ lblOverlap    = input.float(0.3, "Label Spacing (%)", minval=0.05, step=0.05, gr
 legendBgAlpha = input.int(68, "Legend Background Opacity", minval=0, maxval=95, group=grpDisplay, tooltip="Lower = more opaque background (better contrast on light charts)")
 legendHighContrastText = input.bool(true, "Legend High Contrast Text", group=grpDisplay)
 enableStructAutoStagger = input.bool(true, "Auto Stagger Close Structural Labels", group=grpDisplay)
-structLblOverlapPct = input.float(0.20, "Structural Label Spacing (%)", minval=0.05, step=0.05, group=grpDisplay)
-structLblOffsetAtrMult = input.float(0.08, "Structural Label Vertical Offset (ATR)", minval=0.01, step=0.01, group=grpDisplay)
+structLblOverlapPct = input.float(1.25, "Structural Label Spacing (%)", minval=0.05, step=0.05, group=grpDisplay, tooltip="Relative gap threshold; pairs like PWH vs PDL often need ~1%+ on sub-$100 names")
+structLblGapAtrMult = input.float(0.50, "Structural Near (x ATR)", minval=0.05, step=0.05, group=grpDisplay, tooltip="Also treat as close when absolute gap is within this multiple of ATR (covers cases where %% looks small but labels still overlap)")
+structLblOffsetAtrMult = input.float(0.10, "Structural Label Vertical Offset (ATR)", minval=0.01, step=0.01, group=grpDisplay)
 
 grpStruct = "Structural Levels"
 showPDHL      = input.bool(true, "Previous Day High / Low", group=grpStruct)
@@ -70,6 +71,13 @@ legendBodyText = legendHighContrastText ? color.white : structTxtCol
 atrVal   = ta.atr(14)
 mergeTol = atrVal * mergeMult
 avgVol   = ta.sma(volume, 20)
+
+structLblNearEnough(float pLo, float pHi, float atrV, float pctMax, float atrGapMult) =>
+    float absGap = math.abs(pHi - pLo)
+    float pctGap = pLo <= 0 ? 100.0 : absGap / pLo * 100
+    bool byPct = pctGap < pctMax
+    bool byAtr = not na(atrV) and atrV > 0 and absGap <= atrV * atrGapMult
+    byPct or byAtr
 
 // ══════════════════════════════════════════
 // STRUCTURAL LEVELS
@@ -422,14 +430,14 @@ if barstate.islast
                     float pB = array.get(allLblPrice, e + 1)
                     if pA <= 0
                         break
-                    float pctGap = math.abs(pB - pA) / pA * 100
-                    if pctGap >= structLblOverlapPct
+                    if not structLblNearEnough(pA, pB, atrVal, structLblOverlapPct, structLblGapAtrMult)
                         break
                     e := e + 1
                 if e > s
                     for k = s to e
                         float sgn = (k - s) % 2 == 0 ? 1.0 : -1.0
-                        array.set(allLblYAdj, k, sgn * priceOff)
+                        float yAmt = math.max(priceOff, pxTick * 12.0)
+                        array.set(allLblYAdj, k, sgn * yAmt)
                         int step = (k - s) * 2
                         int nb = bar_index + lineExtend + 1 + step
                         array.set(allLblBar, k, math.min(nb, maxLblBar))
@@ -444,7 +452,7 @@ if barstate.islast
                     float pct = math.abs(p2 - p1) / p1 * 100
                     bool s1 = array.get(allLblStruct, i - 1)
                     bool s2 = array.get(allLblStruct, i)
-                    bool structPairClose = s1 and s2 and enableStructAutoStagger and pct < structLblOverlapPct
+                    bool structPairClose = s1 and s2 and enableStructAutoStagger and structLblNearEnough(p1, p2, atrVal, structLblOverlapPct, structLblGapAtrMult)
                     if pct < lblOverlap and not structPairClose
                         curBar = array.get(allLblBar, i)
                         array.set(allLblBar, i, math.min(curBar + 8, maxLblBar))
