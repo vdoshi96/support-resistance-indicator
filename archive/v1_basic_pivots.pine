@@ -1,0 +1,17 @@
+// v1: Basic Pivot S/R (ARCHIVED - not for production use)
+// This was the starting point. Simple pivot detection with extended lines.
+// Problems: too many lines, no merging, no intelligence.
+
+//@version=6
+indicator("S/R Levels v1", overlay=true)
+
+lookback = input.int(5, "Pivot Lookback")
+
+ph = ta.pivothigh(high, lookback, lookback)
+pl = ta.pivotlow(low, lookback, lookback)
+
+if not na(ph)
+    line.new(bar_index - lookback, ph, bar_index, ph, extend=extend.right, color=color.red, style=line.style_dashed)
+
+if not na(pl)
+    line.new(bar_index - lookback, pl, bar_index, pl, extend=extend.right, color=color.green, style=line.style_dashed)

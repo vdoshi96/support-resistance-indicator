@@ -1,0 +1,27 @@
+// v3: Volume + Auto-Flip (ARCHIVED - approach abandoned)
+// This version attempted to track S/R type and auto-flip when price broke through.
+// Problems:
+// - Flip logic ran every bar, causing constant type changes
+// - Yellow dotted flip lines added visual noise without actionable value
+// - Volume gate (not na(avgVol) and avgVol > 0) silently blocked all pivots
+// - Old levels at $400 with high touch*vol scores survived trim while new levels died
+//
+// Key learnings:
+// - Flip tracking is unnecessary if S/R is determined by position relative to price
+// - Volume filter needs graceful na handling, not a hard gate
+// - Trim scoring must penalize distance from current price
+// - Debug mode is essential for diagnosing invisible failures
+//
+// This file is preserved for reference. See docs/DEVELOPMENT_LOG.md for full details.
+
+// [Code omitted - see DEVELOPMENT_LOG.md for the specific issues and fixes]
+// The key error was the volume gate pattern:
+//
+//   if not na(ph) and not na(avgVol) and avgVol > 0
+//       relVol = pivotVol / avgVol
+//       if relVol >= volFilter
+//           // ... add level
+//
+// This blocked ALL pivots whenever avgVol was na (first 20 bars)
+// or when volume data was unavailable (some tickers).
+// Fix: default to passing when volume is unavailable.
