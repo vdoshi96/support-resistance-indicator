@@ -1,3 +1,5 @@
 .worktrees/
 .superpowers/
 docs/reference/
+.DS_Store
+**/.DS_Store
