@@ -399,10 +399,10 @@ if barstate.islast
                             break
 
     int maxLblBar = bar_index + lineExtend + 7
-    tick = syminfo.mintick
-    float priceOff = na(atrVal) or atrVal == 0 ? tick * 5.0 : atrVal * structLblOffsetAtrMult
-    float minOff = tick * 3.0
-    float maxOff = tick * 50.0
+    float pxTick = syminfo.mintick
+    float priceOff = na(atrVal) or atrVal == 0 ? pxTick * 5.0 : atrVal * structLblOffsetAtrMult
+    float minOff = pxTick * 3.0
+    float maxOff = pxTick * 50.0
     if priceOff < minOff
         priceOff := minOff
     if priceOff > maxOff
