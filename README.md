@@ -52,6 +52,16 @@ dynamic-sr-zones/
 - Volume weighting for pivot significance
 - Built-in debug mode for diagnosing issues
 
+## Keeping your clones in sync
+
+Canonical history lives on **GitHub** (`main`). After you push from any machine or worktree, update every other checkout so `HEAD` matches `origin/main`:
+
+```bash
+git fetch origin && git pull --ff-only origin main
+```
+
+If you use a second folder (for example iCloud plus a local worktree), run that in each repo root after each merge or push. `src/dynamic_sr_zones.pine` should be byte-identical everywhere once pulls finish.
+
 ## Future Roadmap
 
 See `docs/DEVELOPMENT_LOG.md` for planned features including:
