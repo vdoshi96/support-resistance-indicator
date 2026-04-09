@@ -28,6 +28,7 @@
 | Structural Label Spacing (%) | 1.25 | 0.05+ | Relative gap threshold for treating two structural labels as overlapping. |
 | Structural Near (x ATR) | 0.5 | 0.05+ | Also stagger when absolute price gap is within this multiple of ATR (helps PWH vs PDL on mid-priced names). |
 | Structural Label Vertical Offset (ATR) | 0.10 | 0.01+ | How far labels shift vertically when staggered (scaled by ATR). |
+| Structural Stagger Strength | 2.25 | 0.5-6 | Multiplier for PDH/PDL/PWH/PWL cluster separation (raise if labels still touch). |
 
 ## Structural Levels
 
