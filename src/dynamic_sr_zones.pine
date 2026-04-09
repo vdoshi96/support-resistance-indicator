@@ -538,10 +538,10 @@ if barstate.islast
             repLw = array.get(allLblLw, repIx)
             repSty = allStructInZone ? line.style_dashed : line.style_solid
             repText = array.get(allLblText, repIx)
-            if e > s and not allStructInZone
-                repText := repText + " ▒"
-            if e > s and allStructInZone
-                repText := "STRUCT " + str.tostring(repPrice, format.mintick)
+            if e > s
+                rangeTxt = str.tostring(zBot, format.mintick) + "-" + str.tostring(zTop, format.mintick)
+                sideTxt = repPrice >= close ? "R" : "S"
+                repText := allStructInZone ? rangeTxt + " STRUCT zone" : rangeTxt + " " + sideTxt + " zone"
 
             line.new(zOrigin, repPrice, bar_index + lineExtend, repPrice, color=repColor, width=repLw, style=repSty)
             if e > s and zTop != zBot
