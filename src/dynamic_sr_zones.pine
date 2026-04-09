@@ -31,6 +31,11 @@ showLabels    = input.bool(true, "Show Price Labels", group=grpDisplay)
 showLegend    = input.bool(true, "Show Legend", group=grpDisplay)
 lblSize       = input.string("Normal", "Label Size", options=["Small", "Normal", "Large"], group=grpDisplay)
 lblOverlap    = input.float(0.3, "Label Spacing (%)", minval=0.05, step=0.05, group=grpDisplay, tooltip="Labels closer than this % apart get staggered to avoid overlap")
+legendBgAlpha = input.int(68, "Legend Background Opacity", minval=0, maxval=95, group=grpDisplay, tooltip="Lower = more opaque background (better contrast on light charts)")
+legendHighContrastText = input.bool(true, "Legend High Contrast Text", group=grpDisplay)
+enableStructAutoStagger = input.bool(true, "Auto Stagger Close Structural Labels", group=grpDisplay)
+structLblOverlapPct = input.float(0.20, "Structural Label Spacing (%)", minval=0.05, step=0.05, group=grpDisplay)
+structLblOffsetAtrMult = input.float(0.08, "Structural Label Vertical Offset (ATR)", minval=0.01, step=0.01, group=grpDisplay)
 
 grpStruct = "Structural Levels"
 showPDHL      = input.bool(true, "Previous Day High / Low", group=grpStruct)
@@ -60,6 +65,7 @@ getTextColor(bgCol) =>
 resTxtCol    = getTextColor(resColor)
 supTxtCol    = getTextColor(supColor)
 structTxtCol = getTextColor(structColor)
+legendBodyText = legendHighContrastText ? color.white : structTxtCol
 
 atrVal   = ta.atr(14)
 mergeTol = atrVal * mergeMult
@@ -304,30 +310,35 @@ if barstate.islast
     var color[] allLblColor = array.new_color(), var color[] allLblTxtCol = array.new_color()
     var int[] allLblBar = array.new_int(), var int[] allLblLw = array.new_int()
     var int[] allLblOrigin = array.new_int(), var bool[] allLblStruct = array.new_bool()
+    var float[] allLblYAdj = array.new_float()
     array.clear(allLblPrice), array.clear(allLblText), array.clear(allLblColor)
     array.clear(allLblTxtCol), array.clear(allLblBar), array.clear(allLblLw)
-    array.clear(allLblOrigin), array.clear(allLblStruct)
+    array.clear(allLblOrigin), array.clear(allLblStruct), array.clear(allLblYAdj)
 
     if showPDHL and not na(pdHigh)
         array.push(allLblPrice, pdHigh), array.push(allLblText, "PDH " + str.tostring(pdHigh, format.mintick))
         array.push(allLblColor, structColor), array.push(allLblTxtCol, structTxtCol)
         array.push(allLblBar, bar_index + lineExtend + 1), array.push(allLblLw, 1)
         array.push(allLblOrigin, bar_index - 60), array.push(allLblStruct, true)
+        array.push(allLblYAdj, 0.0)
     if showPDHL and not na(pdLow)
         array.push(allLblPrice, pdLow), array.push(allLblText, "PDL " + str.tostring(pdLow, format.mintick))
         array.push(allLblColor, structColor), array.push(allLblTxtCol, structTxtCol)
         array.push(allLblBar, bar_index + lineExtend + 1), array.push(allLblLw, 1)
         array.push(allLblOrigin, bar_index - 60), array.push(allLblStruct, true)
+        array.push(allLblYAdj, 0.0)
     if showPWHL and not na(pwHigh)
         array.push(allLblPrice, pwHigh), array.push(allLblText, "PWH " + str.tostring(pwHigh, format.mintick))
         array.push(allLblColor, structColor), array.push(allLblTxtCol, structTxtCol)
         array.push(allLblBar, bar_index + lineExtend + 1), array.push(allLblLw, 2)
         array.push(allLblOrigin, bar_index - 120), array.push(allLblStruct, true)
+        array.push(allLblYAdj, 0.0)
     if showPWHL and not na(pwLow)
         array.push(allLblPrice, pwLow), array.push(allLblText, "PWL " + str.tostring(pwLow, format.mintick))
         array.push(allLblColor, structColor), array.push(allLblTxtCol, structTxtCol)
         array.push(allLblBar, bar_index + lineExtend + 1), array.push(allLblLw, 2)
         array.push(allLblOrigin, bar_index - 120), array.push(allLblStruct, true)
+        array.push(allLblYAdj, 0.0)
 
     int bCount = array.size(bAn)
     if bCount > 0
@@ -350,6 +361,7 @@ if barstate.islast
             array.push(allLblColor, lCol), array.push(allLblTxtCol, tCol)
             array.push(allLblBar, bar_index + lineExtend + 1), array.push(allLblLw, lw)
             array.push(allLblOrigin, array.get(bOr, i)), array.push(allLblStruct, false)
+            array.push(allLblYAdj, 0.0)
 
     int allN = array.size(allLblPrice)
     if allN > 1
@@ -364,6 +376,7 @@ if barstate.islast
                     tI := array.get(allLblLw, i), array.set(allLblLw, i, array.get(allLblLw, j)), array.set(allLblLw, j, tI)
                     tI := array.get(allLblOrigin, i), array.set(allLblOrigin, i, array.get(allLblOrigin, j)), array.set(allLblOrigin, j, tI)
                     tB = array.get(allLblStruct, i), array.set(allLblStruct, i, array.get(allLblStruct, j)), array.set(allLblStruct, j, tB)
+                    tY = array.get(allLblYAdj, i), array.set(allLblYAdj, i, array.get(allLblYAdj, j)), array.set(allLblYAdj, j, tY)
 
     var bool[] skipLbl = array.new_bool()
     array.clear(skipLbl)
@@ -385,14 +398,56 @@ if barstate.islast
                             array.set(skipLbl, i, true)
                             break
 
+    int maxLblBar = bar_index + lineExtend + 7
+    tick = syminfo.mintick
+    float priceOff = na(atrVal) or atrVal == 0 ? tick * 5.0 : atrVal * structLblOffsetAtrMult
+    float minOff = tick * 3.0
+    float maxOff = tick * 50.0
+    if priceOff < minOff
+        priceOff := minOff
+    if priceOff > maxOff
+        priceOff := maxOff
+
+    if enableStructAutoStagger and allN > 1
+        int s = 0
+        while s < allN
+            if array.get(skipLbl, s) or not array.get(allLblStruct, s)
+                s := s + 1
+            else
+                int e = s
+                while e < allN - 1
+                    if array.get(skipLbl, e + 1) or not array.get(allLblStruct, e + 1)
+                        break
+                    float pA = array.get(allLblPrice, e)
+                    float pB = array.get(allLblPrice, e + 1)
+                    if pA <= 0
+                        break
+                    float pctGap = math.abs(pB - pA) / pA * 100
+                    if pctGap >= structLblOverlapPct
+                        break
+                    e := e + 1
+                if e > s
+                    for k = s to e
+                        float sgn = (k - s) % 2 == 0 ? 1.0 : -1.0
+                        array.set(allLblYAdj, k, sgn * priceOff)
+                        int step = (k - s) * 2
+                        int nb = bar_index + lineExtend + 1 + step
+                        array.set(allLblBar, k, math.min(nb, maxLblBar))
+                s := e + 1
+
     if allN > 1
         for i = 1 to allN - 1
             if not array.get(skipLbl, i) and not array.get(skipLbl, i - 1)
                 p1 = array.get(allLblPrice, i - 1)
                 p2 = array.get(allLblPrice, i)
-                if p1 > 0 and math.abs(p2 - p1) / p1 * 100 < lblOverlap
-                    curBar = array.get(allLblBar, i)
-                    array.set(allLblBar, i, curBar + 8)
+                if p1 > 0
+                    float pct = math.abs(p2 - p1) / p1 * 100
+                    bool s1 = array.get(allLblStruct, i - 1)
+                    bool s2 = array.get(allLblStruct, i)
+                    bool structPairClose = s1 and s2 and enableStructAutoStagger and pct < structLblOverlapPct
+                    if pct < lblOverlap and not structPairClose
+                        curBar = array.get(allLblBar, i)
+                        array.set(allLblBar, i, math.min(curBar + 8, maxLblBar))
 
     if allN > 0
         for i = 0 to allN - 1
@@ -414,20 +469,21 @@ if barstate.islast
     if showLabels and allN > 0
         for i = 0 to allN - 1
             if not array.get(skipLbl, i)
-                label.new(array.get(allLblBar, i), array.get(allLblPrice, i), array.get(allLblText, i), style=label.style_label_left, color=array.get(allLblColor, i), textcolor=array.get(allLblTxtCol, i), size=labelSz)
+                float lblY = array.get(allLblPrice, i) + array.get(allLblYAdj, i)
+                label.new(array.get(allLblBar, i), lblY, array.get(allLblText, i), style=label.style_label_left, color=array.get(allLblColor, i), textcolor=array.get(allLblTxtCol, i), size=labelSz)
 
-    var table legTbl = table.new(position.top_right, 1, 8, bgcolor=color.new(color.gray, 85), border_width=0)
+    var table legTbl = table.new(position.top_right, 1, 8, bgcolor=color.new(color.gray, legendBgAlpha), border_width=0)
     if showLegend
-        table.cell(legTbl, 0, 0, "── LEGEND ──", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(legTbl, 0, 0, "── LEGEND ──", text_color=legendBodyText, text_size=size.small, text_halign=text.align_left)
         table.cell(legTbl, 0, 1, "━ Support (S): level below price", text_color=supColor, text_size=size.small, text_halign=text.align_left)
         table.cell(legTbl, 0, 2, "━ Resistance (R): level above price", text_color=resColor, text_size=size.small, text_halign=text.align_left)
         table.cell(legTbl, 0, 3, "┄ PDH/PDL  PWH/PWL: structural levels", text_color=structColor, text_size=size.small, text_halign=text.align_left)
-        table.cell(legTbl, 0, 4, "◆ = dual role (acted as both S and R)", text_color=color.white, text_size=size.small, text_halign=text.align_left)
-        table.cell(legTbl, 0, 5, "★ = high volume pivot (1.5x+ avg)", text_color=color.white, text_size=size.small, text_halign=text.align_left)
-        table.cell(legTbl, 0, 6, "Line width = reaction strength + touches", text_color=color.white, text_size=size.small, text_halign=text.align_left)
-        table.cell(legTbl, 0, 7, "[PWH] = coincides with structural level", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(legTbl, 0, 4, "◆ = dual role (acted as both S and R)", text_color=legendBodyText, text_size=size.small, text_halign=text.align_left)
+        table.cell(legTbl, 0, 5, "★ = high volume pivot (1.5x+ avg)", text_color=legendBodyText, text_size=size.small, text_halign=text.align_left)
+        table.cell(legTbl, 0, 6, "Line width = reaction strength + touches", text_color=legendBodyText, text_size=size.small, text_halign=text.align_left)
+        table.cell(legTbl, 0, 7, "[PWH] = coincides with structural level", text_color=legendBodyText, text_size=size.small, text_halign=text.align_left)
 
-    var table dbgTbl = table.new(position.bottom_left, 1, 1, bgcolor=color.new(color.gray, 85), border_width=0)
+    var table dbgTbl = table.new(position.bottom_left, 1, 1, bgcolor=color.new(color.gray, legendBgAlpha), border_width=0)
     if debugMode
         string dump = ""
         int dc = math.min(bCount, 5)
