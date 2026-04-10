@@ -22,7 +22,9 @@
 | Show Legend | true | - | Toggle the top-right legend table. |
 | Label Size | Normal | Small/Normal/Large | Size of all labels on chart. |
 | Label Spacing (%) | 0.3 | 0.05+ | Labels closer than this % apart get staggered or merged. |
-| Zone Merge (%) | 0.85 | 0.10+ | Collapses nearby displayed levels into one representative line and shaded zone (useful on lower timeframes). |
+| Zone Merge (%) | 0.85 | 0.10+ | Adjacent displayed levels merge if gap is below this %; total zone width is also capped. |
+| Zone Max Width (x ATR) | 0.70 | 0.10+ | Maximum height of a merged zone as a multiple of ATR (limits huge ES-style chains). |
+| Zone Max Width (points) | 40 | 0+ | Hard cap on zone height in price units; 0 = use ATR cap only. |
 | Legend Background Opacity | 68 | 0-95 | Lower = more opaque gray behind the legend (better on white charts). |
 | Legend High Contrast Text | true | - | When on, legend body text uses high-contrast color. |
 | Auto Stagger Close Structural Labels | true | - | Spreads PDH/PDL/PWH/PWL labels when they sit on nearby prices. |
