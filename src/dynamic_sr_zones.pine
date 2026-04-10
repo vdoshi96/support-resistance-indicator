@@ -31,7 +31,9 @@ showLabels    = input.bool(true, "Show Price Labels", group=grpDisplay)
 showLegend    = input.bool(true, "Show Legend", group=grpDisplay)
 lblSize       = input.string("Normal", "Label Size", options=["Small", "Normal", "Large"], group=grpDisplay)
 lblOverlap    = input.float(0.3, "Label Spacing (%)", minval=0.05, step=0.05, group=grpDisplay, tooltip="Labels closer than this % apart get staggered to avoid overlap")
-zoneMergePct  = input.float(0.85, "Zone Merge (%)", minval=0.10, step=0.05, group=grpDisplay, tooltip="Nearby displayed levels are collapsed into one representative line + shaded zone")
+zoneMergePct  = input.float(0.85, "Zone Merge (%)", minval=0.10, step=0.05, group=grpDisplay, tooltip="Adjacent displayed levels merge if gap below this %; total zone width is also capped below")
+zoneMaxSpanAtr = input.float(0.70, "Zone Max Width (x ATR)", minval=0.10, step=0.05, group=grpDisplay, tooltip="Stops chained merges from creating huge boxes on indices like ES")
+zoneMaxSpanAbs = input.float(40.0, "Zone Max Width (points)", minval=0.0, step=1.0, group=grpDisplay, tooltip="Hard cap on zone height in price; 0 = ATR-only cap")
 legendBgAlpha = input.int(68, "Legend Background Opacity", minval=0, maxval=95, group=grpDisplay, tooltip="Lower = more opaque background (better contrast on light charts)")
 legendHighContrastText = input.bool(true, "Legend High Contrast Text", group=grpDisplay)
 enableStructAutoStagger = input.bool(true, "Auto Stagger Close Structural Labels", group=grpDisplay)
@@ -497,6 +499,8 @@ if barstate.islast
         int s = 0
         while s < actN
             int e = s
+            float clLo = array.get(allLblPrice, array.get(actIx, s))
+            float clHi = clLo
             while e < actN - 1
                 int ixA = array.get(actIx, e)
                 int ixB = array.get(actIx, e + 1)
@@ -507,6 +511,17 @@ if barstate.islast
                 pctGap = math.abs(pB - pA) / pA * 100
                 if pctGap > zoneMergePct
                     break
+                float nLo = math.min(clLo, pB)
+                float nHi = math.max(clHi, pB)
+                float spanAbs = nHi - nLo
+                float capAtr = na(atrVal) or atrVal == 0 ? spanAbs + 1.0 : atrVal * zoneMaxSpanAtr
+                float spanCap = capAtr
+                if zoneMaxSpanAbs > 0.0
+                    spanCap := math.min(spanCap, zoneMaxSpanAbs)
+                if spanAbs > spanCap
+                    break
+                clLo := nLo
+                clHi := nHi
                 e := e + 1
 
             int repIx = array.get(actIx, s)
